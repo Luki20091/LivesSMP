@@ -44,4 +44,7 @@ permissions:
   livessmp.check:
     description: Allows checking other players' lives
     default: op
+  livessmp.craft.revivecrystal:
+    description: Allows crafting the Revive Crystal
+    default: op
 

@@ -21,8 +21,13 @@ public class ReviveItem {
         // Create the base item
         reviveCrystal = new ItemStack(Material.NETHER_STAR);
         ItemMeta meta = reviveCrystal.getItemMeta();
-        meta.setDisplayName("§dRevive Crystal");
-        meta.setLore(java.util.List.of("§7Use this to revive a banned player."));
+        meta.setDisplayName("§dKryształ Odrodzenia");
+        meta.setLore(java.util.List.of(
+            "§7Użyj tego, aby ożywić zbanowanego gracza.",
+            "§8",
+            "§7Trzymaj w głównej ręce i wpisz komendę:",
+            "§7/wskrzes <nick>."
+        ));
 
         // Add NBT tag
         NamespacedKey key = new NamespacedKey(plugin, "revive_crystal");

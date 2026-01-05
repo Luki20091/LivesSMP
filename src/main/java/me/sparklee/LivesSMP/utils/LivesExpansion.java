@@ -30,7 +30,9 @@ public class LivesExpansion extends PlaceholderExpansion {
 
     @Override
     public boolean persist() {
-        return true;
+        // This expansion is bundled with the plugin. Persisting across /reload (or external reloaders)
+        // while holding a plugin reference is a common source of classloader memory leaks.
+        return false;
     }
 
     @Override

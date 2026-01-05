@@ -18,8 +18,10 @@ import me.sparklee.LivesSMP.commands.SetLivesCommand;
 import me.sparklee.LivesSMP.events.PlayerKillListener;
 import me.sparklee.LivesSMP.commands.TopLivesCommand;
 import me.sparklee.LivesSMP.utils.UpdateChecker;
+import me.sparklee.LivesSMP.utils.LivesExpansion;
 
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitTask;
 
 public class LivesSMP extends JavaPlugin {
 
@@ -27,6 +29,8 @@ public class LivesSMP extends JavaPlugin {
     private PlayerManager playerManager;
     private ReviveItem reviveItem;
     private DatabaseManager databaseManager;
+    private BukkitTask actionBarTask;
+    private LivesExpansion livesExpansion;
 
     @Override
     public void onEnable() {
@@ -75,13 +79,15 @@ public class LivesSMP extends JavaPlugin {
         // Start ActionBar life display
         if (getConfig().getBoolean("actionbar.enabled", true)) {
             int interval = getConfig().getInt("actionbar.interval-ticks", 60);
-            getServer().getScheduler().runTaskTimerAsynchronously(this, new me.sparklee.LivesSMP.tasks.ActionBarTask(this), 0L, interval);
+            // Run sync: avoids calling Bukkit API off-thread.
+            actionBarTask = getServer().getScheduler().runTaskTimer(this, new me.sparklee.LivesSMP.tasks.ActionBarTask(this), 0L, interval);
             getLogger().info("ActionBar life display enabled (interval: " + interval + " ticks)");
         }
 
         // Register PlaceholderAPI expansion if PAPI is installed
         if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
-            new me.sparklee.LivesSMP.utils.LivesExpansion(this).register();
+            livesExpansion = new LivesExpansion(this);
+            livesExpansion.register();
             getLogger().info("PlaceholderAPI detected - registered placeholders!");
         } else {
             getLogger().info("PlaceholderAPI not found - skipping placeholder registration.");
@@ -95,8 +101,25 @@ public class LivesSMP extends JavaPlugin {
     public void onDisable() {
         String version = getDescription().getVersion();
 
+        if (actionBarTask != null) {
+            actionBarTask.cancel();
+            actionBarTask = null;
+        }
+
+        if (livesExpansion != null) {
+            try {
+                livesExpansion.unregister();
+            } catch (Exception ignored) {
+                // Best-effort cleanup
+            }
+            livesExpansion = null;
+        }
+
         playerManager.saveData();
         databaseManager.close();
+
+        // Help GC on nonstandard plugin reloaders (e.g., PlugMan)
+        instance = null;
 
         getLogger().info("=======================================");
         getLogger().info("     Disabling LivesSMP v" + version);

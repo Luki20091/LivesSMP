@@ -28,9 +28,15 @@ public class UpdateChecker implements Listener {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
                 URL url = new URL("https://api.spigotmc.org/legacy/update.php?resource=" + resourceId);
-                BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream()));
-                latestVersion = reader.readLine().trim();
-                reader.close();
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream()))) {
+                    String line = reader.readLine();
+                    latestVersion = line == null ? null : line.trim();
+                }
+
+                if (latestVersion == null || latestVersion.isBlank()) {
+                    plugin.getLogger().warning("Could not check for updates: empty version response");
+                    return;
+                }
 
                 String currentVersion = plugin.getDescription().getVersion();
 

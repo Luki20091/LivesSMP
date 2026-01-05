@@ -3,13 +3,16 @@ package me.sparklee.LivesSMP.data;
 import me.sparklee.LivesSMP.LivesSMP;
 import org.bukkit.Bukkit;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.sql.*;
 
 public class DatabaseManager {
     private final LivesSMP plugin;
     private Connection connection;
-    private boolean enabled = false;
+    private volatile boolean enabled = false;
+
+    private BukkitTask keepAliveTask;
 
     private String host, database, username, password;
     private int port;
@@ -59,7 +62,12 @@ public class DatabaseManager {
      * Keeps the MySQL connection alive every 5 minutes.
      */
     private void startKeepAlive() {
-        new BukkitRunnable() {
+        if (keepAliveTask != null) {
+            keepAliveTask.cancel();
+            keepAliveTask = null;
+        }
+
+        keepAliveTask = new BukkitRunnable() {
             @Override
             public void run() {
                 if (!enabled) return;
@@ -126,8 +134,9 @@ public class DatabaseManager {
         ensureConnection();
         try (PreparedStatement ps = connection.prepareStatement("SELECT lives FROM player_lives WHERE uuid=?")) {
             ps.setString(1, uuid);
-            ResultSet rs = ps.executeQuery();
+            try (ResultSet rs = ps.executeQuery()) {
             if (rs.next()) return rs.getInt("lives");
+            }
         } catch (SQLException e) {
             Bukkit.getLogger().severe("[LivesSMP] getLives() SQL error: " + e.getMessage());
         }
@@ -150,6 +159,11 @@ public class DatabaseManager {
     }
 
     public void close() {
+        enabled = false;
+        if (keepAliveTask != null) {
+            keepAliveTask.cancel();
+            keepAliveTask = null;
+        }
         try {
             if (connection != null && !connection.isClosed()) connection.close();
         } catch (SQLException e) {

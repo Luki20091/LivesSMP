@@ -42,9 +42,9 @@ public class TopLivesCommand implements CommandExecutor {
 
     private void showMySQLLeaderboard(CommandSender sender) {
         try (PreparedStatement ps = plugin.getDatabaseManager().getConnection().prepareStatement(
-                "SELECT uuid, lives FROM player_lives ORDER BY lives DESC LIMIT 10"
-        )) {
-            ResultSet rs = ps.executeQuery();
+            "SELECT uuid, lives FROM player_lives ORDER BY lives DESC LIMIT 10"
+        );
+             ResultSet rs = ps.executeQuery()) {
 
             int rank = 1;
             while (rs.next()) {

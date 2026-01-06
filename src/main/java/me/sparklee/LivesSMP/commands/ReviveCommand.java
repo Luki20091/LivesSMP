@@ -1,15 +1,24 @@
 package me.sparklee.LivesSMP.commands;
 
 import me.sparklee.LivesSMP.LivesSMP;
+import me.sparklee.LivesSMP.items.ReviveItem;
 import me.sparklee.LivesSMP.utils.MessageManager;
 import org.bukkit.BanList;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.BanEntry;
 import org.bukkit.command.*;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
-public class ReviveCommand implements CommandExecutor {
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+
+public class ReviveCommand implements CommandExecutor, TabCompleter {
 
     private final LivesSMP plugin;
 
@@ -30,8 +39,8 @@ public class ReviveCommand implements CommandExecutor {
         }
 
         ItemStack held = player.getInventory().getItemInMainHand();
-        if (!held.hasItemMeta() || held.getItemMeta().getDisplayName() == null ||
-                !held.getItemMeta().getDisplayName().equals("§dRevive Crystal")) {
+        String displayName = (held.hasItemMeta() && held.getItemMeta() != null) ? held.getItemMeta().getDisplayName() : null;
+        if (!plugin.getReviveItem().isReviveCrystal(held) || displayName == null || !displayName.equals(ReviveItem.DISPLAY_NAME)) {
             player.sendMessage(MessageManager.get("revive-invalid-item", "&cYou must hold a Revive Crystal to use this!"));
             return true;
         }
@@ -89,5 +98,51 @@ public class ReviveCommand implements CommandExecutor {
         }
 
         return true;
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (!(sender instanceof Player)) {
+            return Collections.emptyList();
+        }
+
+        if (args.length != 1) {
+            return Collections.emptyList();
+        }
+
+        String prefix = args[0] == null ? "" : args[0].toLowerCase();
+        Set<String> candidates = new HashSet<>();
+
+        // Players with 0 lives from storage (MySQL/YAML)
+        for (UUID uuid : plugin.getPlayerManager().getUuidsWithLives(0)) {
+            OfflinePlayer offline = Bukkit.getOfflinePlayer(uuid);
+            String name = offline.getName();
+            if (name != null && !name.isBlank()) {
+                candidates.add(name);
+            }
+        }
+
+        // Also include currently banned names (covers cases where ban exists even if storage is missing)
+        BanList banList = Bukkit.getBanList(BanList.Type.NAME);
+        for (Object obj : banList.getBanEntries()) {
+            if (obj instanceof BanEntry<?> entry) {
+                Object targetObj = entry.getTarget();
+                if (targetObj == null) continue;
+                String targetName = String.valueOf(targetObj);
+                if (!targetName.isBlank() && !"null".equalsIgnoreCase(targetName)) {
+                    candidates.add(targetName);
+                }
+            }
+        }
+
+        List<String> result = new ArrayList<>();
+        for (String name : candidates) {
+            if (prefix.isEmpty() || name.toLowerCase().startsWith(prefix)) {
+                result.add(name);
+            }
+        }
+
+        result.sort(String.CASE_INSENSITIVE_ORDER);
+        return result;
     }
 }

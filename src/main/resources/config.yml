@@ -69,6 +69,20 @@ actionbar:
   interval-ticks: 60
 
 # ─────────────────────────────────────────────────────────
+# Death Teleport (anti-lava / anti-fall loop)
+# Teleports the player after respawn to a safe location.
+# Runs 1 tick after respawn.
+# ─────────────────────────────────────────────────────────
+death-teleport:
+  enabled: true
+  world: "world"
+  x: -216.50
+  y: 93.50
+  z: -1153.50
+  yaw: -90.0
+  pitch: 45.0
+
+# ─────────────────────────────────────────────────────────
 # Revive Crystal Settings
 # The Revive Crystal is used to revive banned players.
 # You can fully customize its crafting recipe here.

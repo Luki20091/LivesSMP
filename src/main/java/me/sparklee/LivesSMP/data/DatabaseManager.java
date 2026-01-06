@@ -6,6 +6,9 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.sql.*;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 
 public class DatabaseManager {
     private final LivesSMP plugin;
@@ -156,6 +159,30 @@ public class DatabaseManager {
         } catch (SQLException e) {
             Bukkit.getLogger().severe("[LivesSMP] setLives() SQL error: " + e.getMessage());
         }
+    }
+
+    public Set<UUID> getUuidsWithLives(int lives) {
+        Set<UUID> result = new HashSet<>();
+        if (!enabled) return result;
+        ensureConnection();
+
+        try (PreparedStatement ps = connection.prepareStatement("SELECT uuid FROM player_lives WHERE lives=?")) {
+            ps.setInt(1, lives);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String uuidStr = rs.getString("uuid");
+                    try {
+                        result.add(UUID.fromString(uuidStr));
+                    } catch (IllegalArgumentException ignored) {
+                        // Skip invalid UUID rows
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            Bukkit.getLogger().severe("[LivesSMP] getUuidsWithLives() SQL error: " + e.getMessage());
+        }
+
+        return result;
     }
 
     public void close() {

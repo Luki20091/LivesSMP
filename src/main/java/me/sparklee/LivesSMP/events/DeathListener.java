@@ -9,6 +9,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 
+import org.bukkit.event.EventPriority;
+
 import java.util.Calendar;
 import java.util.Date;
 import java.util.regex.Matcher;
@@ -22,14 +24,46 @@ public class DeathListener implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
+
+        // If another plugin already cancelled/handled, do nothing
+        if (event.isCancelled()) return;
 
         // Skip if player has bypass permission
         if (player.hasPermission("livessmp.bypass")) return;
 
-        int lives = plugin.getPlayerManager().decrementLife(player);
+        int amountToLose = 1;
+        Player killer = player.getKiller();
+        boolean lifeStealEnabled = killer != null && plugin.getConfig().getBoolean("life-steal.enabled", true);
+        if (lifeStealEnabled) {
+            amountToLose = Math.max(1, plugin.getConfig().getInt("life-steal.amount", 1));
+        }
+
+        int lives = plugin.getPlayerManager().removeLives(player.getUniqueId(), amountToLose);
+
+        // Life-steal: killer gains the same amount (if victim isn't bypass)
+        if (lifeStealEnabled && !killer.hasPermission("livessmp.bypass")) {
+            int killerLives = plugin.getPlayerManager().addLives(killer.getUniqueId(), amountToLose);
+
+            killer.sendMessage(MessageManager.formatPlaceholders(
+                MessageManager.get("life-steal-gain", "&aYou stole &e%amount% &alife(s) from &e%target%! &7(You now have &e%lives%&7)"),
+                killer.getName(), player.getName(), killerLives
+            ).replace("%amount%", String.valueOf(amountToLose)));
+
+            player.sendMessage(MessageManager.formatPlaceholders(
+                MessageManager.get("life-steal-loss", "&cYou lost &e%amount% &clife(s) to &e%player%! &7(You now have &e%lives%&7)"),
+                killer.getName(), player.getName(), lives
+            ).replace("%amount%", String.valueOf(amountToLose)));
+
+            if (plugin.getConfig().getBoolean("life-steal.broadcast", true)) {
+            Bukkit.broadcastMessage(MessageManager.formatPlaceholders(
+                MessageManager.get("life-steal-broadcast", "&#FF9F68⚔ &e%player% &7stole &c%amount% &7life(s) from &e%target%!"),
+                killer.getName(), player.getName(), 0
+            ).replace("%amount%", String.valueOf(amountToLose)));
+            }
+        }
 
         // Player lost all lives
         if (lives <= 0) {
@@ -48,22 +82,24 @@ public class DeathListener implements Listener {
                         "&c☠ You’ve lost all 3 of your lives!\n&7You are now banned until someone revives you.");
             }
 
-            // Apply ban
-            BanList banList = Bukkit.getBanList(BanList.Type.NAME);
-            banList.addBan(player.getName(), banReason, expires, "LivesSMP");
-
-            // Kick player
-            player.kickPlayer(kickMessage);
+            // Delay ban + kick by 1 tick so other plugins (e.g., Graves) can finish processing the death event.
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                BanList banList = Bukkit.getBanList(BanList.Type.NAME);
+                banList.addBan(player.getName(), banReason, expires, "LivesSMP");
+                player.kickPlayer(kickMessage);
+            });
 
             plugin.getLogger().info(player.getName() + " was "
                     + (tempBanEnabled ? "temporarily" : "permanently")
                     + " banned for losing all lives.");
         } else {
             // Player still has lives remaining
-            player.sendMessage(MessageManager.formatPlaceholders(
-                    MessageManager.get("life-lost", "&cYou lost a life! &7Lives remaining: &e%lives%"),
-                    player.getName(), null, lives
-            ));
+            if (!lifeStealEnabled) {
+                player.sendMessage(MessageManager.formatPlaceholders(
+                        MessageManager.get("life-lost", "&cYou lost a life! &7Lives remaining: &e%lives%"),
+                        player.getName(), null, lives
+                ));
+            }
         }
     }
 

@@ -6,6 +6,7 @@ import me.sparklee.LivesSMP.commands.ReviveCommand;
 import me.sparklee.LivesSMP.events.DeathListener;
 import me.sparklee.LivesSMP.events.JoinListener;
 import me.sparklee.LivesSMP.events.CraftingListener;
+import me.sparklee.LivesSMP.events.RespawnTeleportListener;
 import me.sparklee.LivesSMP.items.ReviveItem;
 import me.sparklee.LivesSMP.utils.MessageManager;
 import me.sparklee.LivesSMP.data.DatabaseManager;
@@ -15,13 +16,13 @@ import me.sparklee.LivesSMP.utils.ConfigManager;
 import me.sparklee.LivesSMP.commands.AddLivesCommand;
 import me.sparklee.LivesSMP.commands.RemoveLivesCommand;
 import me.sparklee.LivesSMP.commands.SetLivesCommand;
-import me.sparklee.LivesSMP.events.PlayerKillListener;
 import me.sparklee.LivesSMP.commands.TopLivesCommand;
 import me.sparklee.LivesSMP.utils.UpdateChecker;
 import me.sparklee.LivesSMP.utils.LivesExpansion;
 
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.command.PluginCommand;
 
 public class LivesSMP extends JavaPlugin {
 
@@ -65,9 +66,15 @@ public class LivesSMP extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new DeathListener(this), this);
         getServer().getPluginManager().registerEvents(new JoinListener(this), this);
         getServer().getPluginManager().registerEvents(new CraftingListener(this), this);
-        getServer().getPluginManager().registerEvents(new PlayerKillListener(this), this);
+    getServer().getPluginManager().registerEvents(new RespawnTeleportListener(this), this);
 
-        getCommand("revive").setExecutor(new ReviveCommand(this));
+
+        ReviveCommand reviveCommand = new ReviveCommand(this);
+        PluginCommand revive = getCommand("revive");
+        if (revive != null) {
+            revive.setExecutor(reviveCommand);
+            revive.setTabCompleter(reviveCommand);
+        }
         getCommand("lives").setExecutor(new LivesCommand(this));
         getCommand("livessmpreload").setExecutor(new ReloadCommand(this));
         getCommand("livessmp").setExecutor(new MainCommand(this));

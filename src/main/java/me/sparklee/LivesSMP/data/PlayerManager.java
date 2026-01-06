@@ -5,9 +5,12 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.configuration.ConfigurationSection;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 public class PlayerManager {
@@ -162,6 +165,33 @@ public class PlayerManager {
             return plugin.getDatabaseManager().getLives(uuid.toString()) != -1;
         }
         return dataConfig.contains("data." + uuid);
+    }
+
+    public Set<UUID> getUuidsWithLives(int lives) {
+        // MySQL mode
+        if (plugin.getDatabaseManager().isEnabled()) {
+            return plugin.getDatabaseManager().getUuidsWithLives(lives);
+        }
+
+        // File mode
+        Set<UUID> result = new HashSet<>();
+        if (dataConfig == null) return result;
+
+        ConfigurationSection section = dataConfig.getConfigurationSection("data");
+        if (section == null) return result;
+
+        for (String key : section.getKeys(false)) {
+            try {
+                UUID uuid = UUID.fromString(key);
+                if (section.getInt(key) == lives) {
+                    result.add(uuid);
+                }
+            } catch (IllegalArgumentException ignored) {
+                // Skip invalid UUID keys
+            }
+        }
+
+        return result;
     }
 
     // ==================================================

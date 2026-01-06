@@ -12,6 +12,8 @@ import org.bukkit.persistence.PersistentDataType;
 
 public class ReviveItem {
 
+    public static final String DISPLAY_NAME = "§dKryształ Odrodzenia";
+
     private final LivesSMP plugin;
     private final ItemStack reviveCrystal;
 
@@ -21,7 +23,7 @@ public class ReviveItem {
         // Create the base item
         reviveCrystal = new ItemStack(Material.NETHER_STAR);
         ItemMeta meta = reviveCrystal.getItemMeta();
-        meta.setDisplayName("§dKryształ Odrodzenia");
+        meta.setDisplayName(DISPLAY_NAME);
         meta.setLore(java.util.List.of(
             "§7Użyj tego, aby ożywić zbanowanego gracza.",
             "§8",

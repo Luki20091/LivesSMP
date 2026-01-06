@@ -12,9 +12,11 @@ commands:
   revive:
     description: Revive a banned player using a Revive Crystal
     usage: /revive <player>
+    aliases: [wskrzes]
   lives:
     description: Check your remaining lives
     usage: /lives
+    aliases: [zycia]
   livessmpreload:
     description: Reload 3LivesSMP configuration
     usage: /livessmpreload

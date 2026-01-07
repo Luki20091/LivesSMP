@@ -24,47 +24,74 @@ public class TopLivesCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
-        sender.sendMessage(" ");
-        sender.sendMessage("§6§l§7Top Players by Lives:");
-        sender.sendMessage("§7------------------------------------");
-        sender.sendMessage(" ");
-
-        if (plugin.getDatabaseManager().isEnabled()) {
-            showMySQLLeaderboard(sender);
-        } else {
-            showYAMLLeaderboard(sender);
+        int page = 1;
+        if (args.length >= 1) {
+            try {
+                page = Integer.parseInt(args[0]);
+                if (page < 1) page = 1;
+            } catch (NumberFormatException e) {
+                sender.sendMessage("§cUżycie: /" + label + " [strona]");
+                return true;
+            }
         }
 
-        sender.sendMessage("§7------------------------------------");
-        sender.sendMessage(" ");
+        int pageSize = 10;
+        if (plugin.getDatabaseManager().isEnabled()) {
+            showMySQLLeaderboard(sender, page, pageSize);
+        } else {
+            showYAMLLeaderboard(sender, page, pageSize);
+        }
         return true;
     }
 
-    private void showMySQLLeaderboard(CommandSender sender) {
+    private void showMySQLLeaderboard(CommandSender sender, int page, int pageSize) {
+        int total = 0;
+        try (PreparedStatement countPs = plugin.getDatabaseManager().getConnection().prepareStatement(
+            "SELECT COUNT(*) AS total FROM player_lives"
+        ); ResultSet crs = countPs.executeQuery()) {
+            if (crs.next()) total = crs.getInt("total");
+        } catch (Exception e) {
+            plugin.getLogger().warning("[LivesSMP] Failed to count leaderboard rows: " + e.getMessage());
+        }
+
+        int totalPages = Math.max(1, (int) Math.ceil(total / (double) pageSize));
+        if (page > totalPages) page = totalPages;
+        int offset = (page - 1) * pageSize;
+
+        sender.sendMessage(" ");
+        sender.sendMessage("§6§lTop graczy po ilości żyć §7- strona §e" + page + "§7/§e" + totalPages);
+        sender.sendMessage("§7------------------------------------");
+        sender.sendMessage(" ");
+
         try (PreparedStatement ps = plugin.getDatabaseManager().getConnection().prepareStatement(
-            "SELECT uuid, lives FROM player_lives ORDER BY lives DESC LIMIT 10"
-        );
-             ResultSet rs = ps.executeQuery()) {
+            "SELECT uuid, lives FROM player_lives ORDER BY lives DESC LIMIT ? OFFSET ?"
+        )) {
+            ps.setInt(1, pageSize);
+            ps.setInt(2, offset);
+            try (ResultSet rs = ps.executeQuery()) {
+                int index = 0;
+                while (rs.next()) {
+                    UUID uuid = UUID.fromString(rs.getString("uuid"));
+                    int lives = rs.getInt("lives");
 
-            int rank = 1;
-            while (rs.next()) {
-                UUID uuid = UUID.fromString(rs.getString("uuid"));
-                int lives = rs.getInt("lives");
+                    OfflinePlayer player = Bukkit.getOfflinePlayer(uuid);
+                    String name = player != null && player.getName() != null ? player.getName() : "Unknown";
 
-                OfflinePlayer player = Bukkit.getOfflinePlayer(uuid);
-                String name = player != null && player.getName() != null ? player.getName() : "Unknown";
-
-                sender.sendMessage("§e#" + rank + " §f" + name + " §7— §c" + lives + " ♥");
-                rank++;
+                    int rank = offset + (++index);
+                    sender.sendMessage("§e#" + rank + " §f" + name + " §7— §c" + lives + " ♥");
+                }
             }
 
         } catch (Exception e) {
             sender.sendMessage(MessageManager.get("leaderboard-error", "&cFailed to load leaderboard! Check console."));
             plugin.getLogger().severe("[LivesSMP] Failed to fetch MySQL leaderboard: " + e.getMessage());
         }
+
+        sender.sendMessage("§7------------------------------------");
+        sender.sendMessage(" ");
     }
 
-    private void showYAMLLeaderboard(CommandSender sender) {
+    private void showYAMLLeaderboard(CommandSender sender, int page, int pageSize) {
         File dataFile = new File(plugin.getDataFolder(), "data.yml");
         if (!dataFile.exists()) {
             sender.sendMessage(MessageManager.get("leaderboard-empty", "&7No player data found yet!"));
@@ -88,10 +115,21 @@ public class TopLivesCommand implements CommandExecutor {
 
         // Sort descending
         List<Map.Entry<String, Integer>> sorted = new ArrayList<>(livesMap.entrySet());
-        sorted.sort((a, b) -> b.getValue() - a.getValue());
+        sorted.sort((a, b) -> b.getValue().compareTo(a.getValue()));
 
-        int rank = 1;
-        for (Map.Entry<String, Integer> entry : sorted.subList(0, Math.min(10, sorted.size()))) {
+        int total = sorted.size();
+        int totalPages = Math.max(1, (int) Math.ceil(total / (double) pageSize));
+        if (page > totalPages) page = totalPages;
+        int from = Math.max(0, (page - 1) * pageSize);
+        int to = Math.min(total, from + pageSize);
+
+        sender.sendMessage(" ");
+        sender.sendMessage("§6§lTop graczy po ilości żyć §7- strona §e" + page + "§7/§e" + totalPages);
+        sender.sendMessage("§7------------------------------------");
+        sender.sendMessage(" ");
+
+        int rank = from + 1;
+        for (Map.Entry<String, Integer> entry : sorted.subList(from, to)) {
             UUID uuid = UUID.fromString(entry.getKey());
             OfflinePlayer player = Bukkit.getOfflinePlayer(uuid);
             String name = player != null && player.getName() != null ? player.getName() : "Unknown";
@@ -100,5 +138,8 @@ public class TopLivesCommand implements CommandExecutor {
             sender.sendMessage("§e#" + rank + " §f" + name + " §7— §c" + lives + " ♥");
             rank++;
         }
+
+        sender.sendMessage("§7------------------------------------");
+        sender.sendMessage(" ");
     }
 }

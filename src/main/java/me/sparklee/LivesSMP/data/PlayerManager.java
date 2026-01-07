@@ -18,6 +18,7 @@ public class PlayerManager {
     private final LivesSMP plugin;
     private File dataFile;
     private FileConfiguration dataConfig;
+    private final Set<UUID> reviveTeleportMemory = new HashSet<>();
 
     public PlayerManager(LivesSMP plugin) {
         this.plugin = plugin;
@@ -110,6 +111,38 @@ public class PlayerManager {
         // File mode
         dataConfig.set("data." + uuid, lives);
         saveData();
+    }
+
+    // ==================================================
+    //      POST-REVIVE TELEPORT FLAG (ONE-TIME)
+    // ==================================================
+
+    /**
+     * Mark a player to be teleported to sanctuary once (e.g., after revive).
+     */
+    public void markReviveTeleport(UUID uuid) {
+        if (plugin.getDatabaseManager().isEnabled()) {
+            // DB mode: keep in memory (works for online revive). Offline persistence would require schema changes.
+            reviveTeleportMemory.add(uuid);
+            return;
+        }
+        dataConfig.set("reviveTeleport." + uuid, true);
+        saveData();
+    }
+
+    /**
+     * Consume and clear the one-time teleport flag. Returns true if it was set.
+     */
+    public boolean consumeReviveTeleport(UUID uuid) {
+        if (plugin.getDatabaseManager().isEnabled()) {
+            return reviveTeleportMemory.remove(uuid);
+        }
+        boolean flag = dataConfig.getBoolean("reviveTeleport." + uuid, false);
+        if (flag) {
+            dataConfig.set("reviveTeleport." + uuid, null);
+            saveData();
+        }
+        return flag;
     }
 
     // ==================================================

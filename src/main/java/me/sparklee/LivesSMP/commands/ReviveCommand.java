@@ -3,6 +3,7 @@ package me.sparklee.LivesSMP.commands;
 import me.sparklee.LivesSMP.LivesSMP;
 import me.sparklee.LivesSMP.items.ReviveItem;
 import me.sparklee.LivesSMP.utils.MessageManager;
+import me.sparklee.LivesSMP.utils.TeleportUtils;
 import org.bukkit.BanList;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -78,6 +79,9 @@ public class ReviveCommand implements CommandExecutor, TabCompleter {
         plugin.getPlayerManager().setLives(target.getUniqueId(), reviveLives);
         held.setAmount(held.getAmount() - 1);
 
+        // Mark for sanctuary teleport after revive
+        plugin.getPlayerManager().markReviveTeleport(target.getUniqueId());
+
         // Broadcast
         Bukkit.broadcastMessage(MessageManager.formatPlaceholders(
                 MessageManager.get("revive-broadcast", "&#FF9F68⚡ &e%player% &7has revived &b%target% &7using a Revive Crystal!"),
@@ -96,6 +100,12 @@ public class ReviveCommand implements CommandExecutor, TabCompleter {
                     MessageManager.get("revive-target", "&aYou’ve been revived by &e%player%&a!"),
                     player.getName(), target.getName(), 0
             ));
+
+            // If online, teleport immediately to sanctuary and consume the flag
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                TeleportUtils.teleportToSanctuary(plugin, target.getPlayer());
+                plugin.getPlayerManager().consumeReviveTeleport(target.getUniqueId());
+            });
         }
 
         return true;

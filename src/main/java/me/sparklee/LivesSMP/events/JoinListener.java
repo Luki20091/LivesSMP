@@ -2,6 +2,7 @@ package me.sparklee.LivesSMP.events;
 
 import me.sparklee.LivesSMP.LivesSMP;
 import me.sparklee.LivesSMP.utils.MessageManager;
+import me.sparklee.LivesSMP.utils.TeleportUtils;
 import org.bukkit.BanList;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -25,6 +26,11 @@ public class JoinListener implements Listener {
         int postBanLives = plugin.getConfig().getInt("post-ban-lives", startingLives);
         int lives = plugin.getPlayerManager().getLives(player);
 
+        // If marked due to offline revive, teleport to sanctuary once
+        if (plugin.getPlayerManager().consumeReviveTeleport(player.getUniqueId())) {
+            Bukkit.getScheduler().runTask(plugin, () -> TeleportUtils.teleportToSanctuary(plugin, player));
+        }
+
         // If the player has no data yet
         if (!plugin.getPlayerManager().hasData(player)) {
             plugin.getPlayerManager().setLives(player, startingLives);
@@ -44,6 +50,9 @@ public class JoinListener implements Listener {
                 player.getName(), null, postBanLives
             ));
             plugin.getLogger().info("[LivesSMP] Auto-restored " + player.getName() + " to " + postBanLives + " lives after unban.");
+
+            // Teleport to sanctuary after auto-revive
+            Bukkit.getScheduler().runTask(plugin, () -> TeleportUtils.teleportToSanctuary(plugin, player));
             return;
         }
 

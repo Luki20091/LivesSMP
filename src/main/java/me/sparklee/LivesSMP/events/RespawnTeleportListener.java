@@ -2,12 +2,11 @@ package me.sparklee.LivesSMP.events;
 
 import me.sparklee.LivesSMP.LivesSMP;
 import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerRespawnEvent;
+import me.sparklee.LivesSMP.utils.TeleportUtils;
 
 public class RespawnTeleportListener implements Listener {
 
@@ -23,25 +22,10 @@ public class RespawnTeleportListener implements Listener {
 
         if (player.hasPermission("livessmp.bypass")) return;
 
-        boolean enabled = plugin.getConfig().getBoolean("death-teleport.enabled", true);
-        if (!enabled) return;
-
-        String worldName = plugin.getConfig().getString("death-teleport.world", "world");
-        double x = plugin.getConfig().getDouble("death-teleport.x", -0.5);
-        double y = plugin.getConfig().getDouble("death-teleport.y", 70.0);
-        double z = plugin.getConfig().getDouble("death-teleport.z", 0.5);
-        float yaw = (float) plugin.getConfig().getDouble("death-teleport.yaw", 90.92);
-        float pitch = (float) plugin.getConfig().getDouble("death-teleport.pitch", 2.59);
-
-        World world = Bukkit.getWorld(worldName);
-        if (world == null) {
-            plugin.getLogger().warning("[LivesSMP] death-teleport.world is invalid: " + worldName);
-            return;
+        // Only teleport on respawn if a one-time post-revive flag is set.
+        // Normal deaths should use bed/anchor/spawn as usual.
+        if (plugin.getPlayerManager().consumeReviveTeleport(player.getUniqueId())) {
+            Bukkit.getScheduler().runTaskLater(plugin, () -> TeleportUtils.teleportToSanctuary(plugin, player), 1L);
         }
-
-        Location location = new Location(world, x, y, z, yaw, pitch);
-
-        // Run one tick later so the player is fully spawned and moved away from danger.
-        Bukkit.getScheduler().runTaskLater(plugin, () -> player.teleport(location), 1L);
     }
 }

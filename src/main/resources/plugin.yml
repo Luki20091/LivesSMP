@@ -34,7 +34,8 @@ commands:
     usage: /checklives <player>
   toplives:
     description: Shows the top players with the most lives
-    usage: /toplives
+    usage: /toplives [page]
+    aliases: [topzycia]
 
 permissions:
   livessmp.admin:

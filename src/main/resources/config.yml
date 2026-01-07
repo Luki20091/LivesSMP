@@ -31,6 +31,19 @@ prefix: "&6[LivesSMP] &f"
 starting-lives: 3
 
 # ─────────────────────────────────────────────────────────
+# Lives granted when a player is revived using a Revive Crystal.
+# Default: 1
+# ─────────────────────────────────────────────────────────
+revive-lives: 3
+
+# ─────────────────────────────────────────────────────────
+# Lives restored automatically after a temporary ban expires.
+# If not set, it falls back to starting-lives.
+# Default: 3
+# ─────────────────────────────────────────────────────────
+post-ban-lives: 3
+
+# ─────────────────────────────────────────────────────────
 # Temporary Ban Settings
 # When enabled, players with 0 lives will be banned for a limited time
 # instead of permanently.
@@ -126,7 +139,7 @@ revive-crystal:
 # Supports & color codes and hex colors using &#RRGGBB (e.g. &#FF9F68)
 # ─────────────────────────────────────────────────────────
 messages:
-  join-new: "&aWelcome to Lives SMP! You’ve been given &e3 lives&a."
+  join-new: "&aWelcome to Lives SMP! You’ve been given &e%lives% &alives."
   join-return: "&7Welcome back! You currently have &e%lives% &7lives."
 
   life-lost: "&cYou lost a life! &7Lives remaining: &e%lives%"

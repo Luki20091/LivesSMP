@@ -74,7 +74,8 @@ public class ReviveCommand implements CommandExecutor, TabCompleter {
             banList.pardon(target.getName());
         }
 
-        plugin.getPlayerManager().setLives(target.getUniqueId(), 1);
+        int reviveLives = plugin.getConfig().getInt("revive-lives", 1);
+        plugin.getPlayerManager().setLives(target.getUniqueId(), reviveLives);
         held.setAmount(held.getAmount() - 1);
 
         // Broadcast

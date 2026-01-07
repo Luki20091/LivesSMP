@@ -22,6 +22,7 @@ public class JoinListener implements Listener {
         Player player = event.getPlayer();
 
         int startingLives = plugin.getConfig().getInt("starting-lives", 3);
+        int postBanLives = plugin.getConfig().getInt("post-ban-lives", startingLives);
         int lives = plugin.getPlayerManager().getLives(player);
 
         // If the player has no data yet
@@ -37,12 +38,12 @@ public class JoinListener implements Listener {
 
         BanList banList = Bukkit.getBanList(BanList.Type.NAME);
         if (lives <= 0 && !banList.isBanned(player.getName())) {
-            plugin.getPlayerManager().setLives(player, startingLives);
+            plugin.getPlayerManager().setLives(player, postBanLives);
             player.sendMessage(MessageManager.formatPlaceholders(
-                    MessageManager.get("auto-revive", "&aYou were revived and restored to &e%lives% &alives!"),
-                    player.getName(), null, startingLives
+                MessageManager.get("auto-revive", "&aYou were revived and restored to &e%lives% &alives!"),
+                player.getName(), null, postBanLives
             ));
-            plugin.getLogger().info("[LivesSMP] Auto-restored " + player.getName() + " to " + startingLives + " lives after unban.");
+            plugin.getLogger().info("[LivesSMP] Auto-restored " + player.getName() + " to " + postBanLives + " lives after unban.");
             return;
         }
 

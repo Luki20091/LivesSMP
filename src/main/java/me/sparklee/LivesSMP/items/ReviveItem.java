@@ -10,6 +10,8 @@ import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
+import me.sparklee.LivesSMP.utils.DebugLog;
+
 public class ReviveItem {
 
     public static final String DISPLAY_NAME = "§dKryształ Odrodzenia";
@@ -46,16 +48,19 @@ public class ReviveItem {
     private void registerRecipe() {
         if (!plugin.getConfig().getBoolean("revive-crystal.enabled")) {
             plugin.getLogger().info("Revive Crystal crafting disabled via config.");
+            DebugLog.d(plugin, "ReviveItem.registerRecipe(): disabled");
             return;
         }
 
         NamespacedKey key = new NamespacedKey(plugin, "revive_crystal_recipe");
         int amount = plugin.getConfig().getInt("revive-crystal.amount", 1);
+        DebugLog.d(plugin, "ReviveItem.registerRecipe(): amount=" + amount);
 
         ItemStack result = reviveCrystal.clone();
         result.setAmount(amount);
 
         var shape = plugin.getConfig().getStringList("revive-crystal.shape");
+        DebugLog.d(plugin, "ReviveItem.registerRecipe(): shape=" + shape);
 
         // Validate shape
         if (shape == null || shape.size() != 3) {
@@ -77,6 +82,7 @@ public class ReviveItem {
         ConfigurationSection ingredients = plugin.getConfig().getConfigurationSection("revive-crystal.ingredients");
         if (ingredients == null) {
             plugin.getLogger().severe("[LivesSMP] revive-crystal.ingredients missing in config!");
+            DebugLog.d(plugin, "ReviveItem.registerRecipe(): missing ingredients section");
             return;
         }
 
@@ -97,6 +103,8 @@ public class ReviveItem {
             validIngredientFound = true;
             recipe.setIngredient(symbol.charAt(0), mat);
         }
+
+        DebugLog.d(plugin, "ReviveItem.registerRecipe(): ingredientsKeys=" + ingredients.getKeys(false));
 
         if (!validIngredientFound) {
             plugin.getLogger().severe("[LivesSMP] No valid materials found in revive-crystal.ingredients — recipe not registered.");

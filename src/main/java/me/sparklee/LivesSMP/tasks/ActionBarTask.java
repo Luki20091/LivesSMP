@@ -6,6 +6,8 @@ import net.kyori.adventure.text.format.TextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
+import me.sparklee.LivesSMP.utils.DebugLog;
+
 public class ActionBarTask implements Runnable {
 
     private final LivesSMP plugin;
@@ -17,6 +19,8 @@ public class ActionBarTask implements Runnable {
     @Override
     public void run() {
         if (!plugin.getConfig().getBoolean("actionbar.enabled", true)) return;
+
+        DebugLog.d(plugin, "ActionBarTask: online=" + Bukkit.getOnlinePlayers().size());
 
         for (Player player : Bukkit.getOnlinePlayers()) {
             int lives = plugin.getPlayerManager().getLives(player);

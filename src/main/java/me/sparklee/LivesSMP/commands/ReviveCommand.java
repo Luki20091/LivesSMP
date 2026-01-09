@@ -4,6 +4,7 @@ import me.sparklee.LivesSMP.LivesSMP;
 import me.sparklee.LivesSMP.items.ReviveItem;
 import me.sparklee.LivesSMP.utils.MessageManager;
 import me.sparklee.LivesSMP.utils.TeleportUtils;
+import me.sparklee.LivesSMP.utils.DebugLog;
 import org.bukkit.BanList;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -34,6 +35,8 @@ public class ReviveCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        DebugLog.d(plugin, "ReviveCommand: sender=" + player.getName() + " argsLen=" + args.length);
+
         if (args.length != 1) {
             player.sendMessage(MessageManager.get("revive-usage", "&cUsage: /revive <player>"));
             return true;
@@ -42,15 +45,19 @@ public class ReviveCommand implements CommandExecutor, TabCompleter {
         ItemStack held = player.getInventory().getItemInMainHand();
         String displayName = (held.hasItemMeta() && held.getItemMeta() != null) ? held.getItemMeta().getDisplayName() : null;
         if (!plugin.getReviveItem().isReviveCrystal(held) || displayName == null || !displayName.equals(ReviveItem.DISPLAY_NAME)) {
+            DebugLog.d(plugin, "ReviveCommand: invalid item in hand for sender=" + player.getName());
             player.sendMessage(MessageManager.get("revive-invalid-item", "&cYou must hold a Revive Crystal to use this!"));
             return true;
         }
 
         OfflinePlayer target = Bukkit.getOfflinePlayer(args[0]);
         if (target == null || !target.hasPlayedBefore()) {
+            DebugLog.d(plugin, "ReviveCommand: target never joined: input=" + args[0]);
             player.sendMessage(MessageManager.get("revive-invalid-player", "&cThat player has never joined the server!"));
             return true;
         }
+
+        DebugLog.d(plugin, "ReviveCommand: target=" + target.getName() + " uuid=" + target.getUniqueId());
 
         //  Get target's current lives (works for both MySQL and YAML)
         int lives;
@@ -60,8 +67,11 @@ public class ReviveCommand implements CommandExecutor, TabCompleter {
             lives = plugin.getPlayerManager().getLives(Bukkit.getOfflinePlayer(target.getUniqueId()));
         }
 
+        DebugLog.d(plugin, "ReviveCommand: target lives=" + lives + " mysql=" + plugin.getDatabaseManager().isEnabled());
+
         // Prevent reviving players who still have lives
         if (lives > 0) {
+            DebugLog.d(plugin, "ReviveCommand: abort - target has lives>0");
             player.sendMessage(MessageManager.formatPlaceholders(
                     MessageManager.get("revive-not-zero", "&eThat player still has lives left and cannot be revived!"),
                     player.getName(), target.getName(), lives
@@ -72,15 +82,18 @@ public class ReviveCommand implements CommandExecutor, TabCompleter {
         //  Only proceed if player truly has 0 lives
         BanList banList = Bukkit.getBanList(BanList.Type.NAME);
         if (banList.isBanned(target.getName())) {
+            DebugLog.d(plugin, "ReviveCommand: target is banned -> pardon");
             banList.pardon(target.getName());
         }
 
         int reviveLives = plugin.getConfig().getInt("revive-lives", 1);
+        DebugLog.d(plugin, "ReviveCommand: reviveLives=" + reviveLives);
         plugin.getPlayerManager().setLives(target.getUniqueId(), reviveLives);
         held.setAmount(held.getAmount() - 1);
 
         // Mark for sanctuary teleport after revive
         plugin.getPlayerManager().markReviveTeleport(target.getUniqueId());
+        DebugLog.d(plugin, "ReviveCommand: marked reviveTeleport for target");
 
         // Broadcast
         Bukkit.broadcastMessage(MessageManager.formatPlaceholders(
@@ -107,6 +120,8 @@ public class ReviveCommand implements CommandExecutor, TabCompleter {
                 plugin.getPlayerManager().consumeReviveTeleport(target.getUniqueId());
             });
         }
+
+        DebugLog.memory(plugin, "after-revive:" + target.getName());
 
         return true;
     }

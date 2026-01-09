@@ -6,19 +6,23 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.configuration.ConfigurationSection;
+import me.sparklee.LivesSMP.utils.DebugLog;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 public class PlayerManager {
 
     private final LivesSMP plugin;
     private File dataFile;
     private FileConfiguration dataConfig;
-    private final Set<UUID> reviveTeleportMemory = new HashSet<>();
+
+    private File reviveTeleportFile;
+    private FileConfiguration reviveTeleportConfig;
 
     public PlayerManager(LivesSMP plugin) {
         this.plugin = plugin;
@@ -36,6 +40,51 @@ public class PlayerManager {
             }
             dataConfig = YamlConfiguration.loadConfiguration(dataFile);
         }
+
+        // Always store revive-teleport flags in a small YAML file.
+        reviveTeleportFile = new File(plugin.getDataFolder(), "revive-teleport.yml");
+        if (!reviveTeleportFile.exists()) {
+            try {
+                reviveTeleportFile.getParentFile().mkdirs();
+                reviveTeleportFile.createNewFile();
+            } catch (IOException e) {
+                plugin.getLogger().severe("Failed to create revive-teleport.yml!");
+            }
+        }
+        reviveTeleportConfig = YamlConfiguration.loadConfiguration(reviveTeleportFile);
+
+        // Best-effort migration from older versions that stored flags in data.yml
+        if (dataConfig != null && dataConfig.isConfigurationSection("reviveTeleport")) {
+            ConfigurationSection section = dataConfig.getConfigurationSection("reviveTeleport");
+            if (section != null) {
+                for (String key : section.getKeys(false)) {
+                    if (section.getBoolean(key, false)) {
+                        // migrate to timestamp format
+                        reviveTeleportConfig.set("reviveTeleport." + key, System.currentTimeMillis());
+                    }
+                }
+            }
+            dataConfig.set("reviveTeleport", null);
+            saveData();
+            saveReviveTeleportData();
+        }
+
+        // Best-effort cleanup at startup to prevent unbounded growth.
+        pruneExpiredReviveTeleports(true);
+    }
+
+    private long getReviveTeleportTtlMillis() {
+        int days = plugin.getConfig().getInt("revive-teleport.expire-after-days", 30);
+        if (days <= 0) return -1L;
+        return TimeUnit.DAYS.toMillis(days);
+    }
+
+    private boolean isReviveTeleportExpired(long timestampMillis, long nowMillis) {
+        long ttl = getReviveTeleportTtlMillis();
+        if (ttl <= 0) return false;
+        // guard against clock skew / corrupted data
+        if (timestampMillis <= 0) return true;
+        return nowMillis - timestampMillis > ttl;
     }
 
     // ==================================================
@@ -102,6 +151,7 @@ public class PlayerManager {
     }
 
     public void setLives(UUID uuid, int lives) {
+        DebugLog.d(plugin, "PlayerManager.setLives: uuid=" + uuid + " lives=" + lives + " mysql=" + plugin.getDatabaseManager().isEnabled());
         // MySQL mode
         if (plugin.getDatabaseManager().isEnabled()) {
             plugin.getDatabaseManager().setLives(uuid.toString(), lives);
@@ -121,28 +171,114 @@ public class PlayerManager {
      * Mark a player to be teleported to sanctuary once (e.g., after revive).
      */
     public void markReviveTeleport(UUID uuid) {
-        if (plugin.getDatabaseManager().isEnabled()) {
-            // DB mode: keep in memory (works for online revive). Offline persistence would require schema changes.
-            reviveTeleportMemory.add(uuid);
-            return;
-        }
-        dataConfig.set("reviveTeleport." + uuid, true);
-        saveData();
+        DebugLog.d(plugin, "PlayerManager.markReviveTeleport: uuid=" + uuid);
+        reviveTeleportConfig.set("reviveTeleport." + uuid, System.currentTimeMillis());
+        saveReviveTeleportData();
     }
 
     /**
      * Consume and clear the one-time teleport flag. Returns true if it was set.
      */
     public boolean consumeReviveTeleport(UUID uuid) {
-        if (plugin.getDatabaseManager().isEnabled()) {
-            return reviveTeleportMemory.remove(uuid);
+        String path = "reviveTeleport." + uuid;
+
+        Object raw = reviveTeleportConfig.get(path);
+        if (raw == null) return false;
+
+        long now = System.currentTimeMillis();
+        long ts;
+
+        // Backward-compat: older versions stored boolean "true".
+        if (raw instanceof Boolean) {
+            if (!((Boolean) raw)) {
+                reviveTeleportConfig.set(path, null);
+                saveReviveTeleportData();
+                return false;
+            }
+            ts = now;
+        } else {
+            ts = reviveTeleportConfig.getLong(path, 0L);
         }
-        boolean flag = dataConfig.getBoolean("reviveTeleport." + uuid, false);
-        if (flag) {
-            dataConfig.set("reviveTeleport." + uuid, null);
-            saveData();
+
+        if (isReviveTeleportExpired(ts, now)) {
+            reviveTeleportConfig.set(path, null);
+            saveReviveTeleportData();
+            DebugLog.d(plugin, "PlayerManager.consumeReviveTeleport: uuid=" + uuid + " -> expired");
+            return false;
         }
-        return flag;
+
+        DebugLog.d(plugin, "PlayerManager.consumeReviveTeleport: uuid=" + uuid + " -> true");
+        reviveTeleportConfig.set(path, null);
+        saveReviveTeleportData();
+        return true;
+    }
+
+    public int getPendingReviveTeleportsCount() {
+        ConfigurationSection section = reviveTeleportConfig.getConfigurationSection("reviveTeleport");
+        if (section == null) return 0;
+
+        long now = System.currentTimeMillis();
+        int count = 0;
+        for (String key : section.getKeys(false)) {
+            Object raw = section.get(key);
+            if (raw == null) continue;
+
+            long ts;
+            if (raw instanceof Boolean) {
+                if (!((Boolean) raw)) continue;
+                ts = now;
+            } else {
+                ts = section.getLong(key, 0L);
+            }
+
+            if (!isReviveTeleportExpired(ts, now)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Removes expired revive-teleport flags. Returns how many entries were removed.
+     */
+    public int pruneExpiredReviveTeleports(boolean saveIfChanged) {
+        long ttl = getReviveTeleportTtlMillis();
+        if (ttl <= 0) return 0;
+
+        ConfigurationSection section = reviveTeleportConfig.getConfigurationSection("reviveTeleport");
+        if (section == null) return 0;
+
+        long now = System.currentTimeMillis();
+        int removed = 0;
+
+        for (String key : section.getKeys(false)) {
+            Object raw = section.get(key);
+            if (raw == null) continue;
+
+            long ts;
+            if (raw instanceof Boolean) {
+                // old format: treat as "recent" so it doesn't get wiped immediately; it will only persist until consumed.
+                if (!((Boolean) raw)) {
+                    section.set(key, null);
+                    removed++;
+                    continue;
+                }
+                ts = now;
+            } else {
+                ts = section.getLong(key, 0L);
+            }
+
+            if (isReviveTeleportExpired(ts, now)) {
+                section.set(key, null);
+                removed++;
+            }
+        }
+
+        if (removed > 0 && saveIfChanged) {
+            saveReviveTeleportData();
+        }
+
+        return removed;
     }
 
     // ==================================================
@@ -153,6 +289,7 @@ public class PlayerManager {
      * Increases a player's lives safely, respecting the max-lives limit (unless unlimited)
      */
     public int addLives(UUID uuid, int amount) {
+        DebugLog.d(plugin, "PlayerManager.addLives: uuid=" + uuid + " amount=" + amount);
         int current = getLives(uuid);
         int max = getMaxLives();
 
@@ -162,6 +299,7 @@ public class PlayerManager {
 
         int newLives = isUnlimitedLives() ? current + amount : Math.min(current + amount, max);
         setLives(uuid, newLives);
+        DebugLog.d(plugin, "PlayerManager.addLives: current=" + current + " newLives=" + newLives + " max=" + max);
         return newLives;
     }
 
@@ -169,9 +307,11 @@ public class PlayerManager {
      * Decreases a player's lives, never below 0
      */
     public int removeLives(UUID uuid, int amount) {
+        DebugLog.d(plugin, "PlayerManager.removeLives: uuid=" + uuid + " amount=" + amount);
         int current = getLives(uuid);
         int newLives = Math.max(0, current - amount);
         setLives(uuid, newLives);
+        DebugLog.d(plugin, "PlayerManager.removeLives: current=" + current + " newLives=" + newLives);
         return newLives;
     }
 
@@ -238,5 +378,23 @@ public class PlayerManager {
         } catch (IOException e) {
             plugin.getLogger().severe("Failed to save data.yml!");
         }
+    }
+
+    private void saveReviveTeleportData() {
+        try {
+            reviveTeleportConfig.save(reviveTeleportFile);
+        } catch (IOException e) {
+            plugin.getLogger().severe("Failed to save revive-teleport.yml!");
+        }
+    }
+
+    public void close() {
+        // Best-effort persistence and release of references (helps GC on reloaders).
+        saveData();
+        saveReviveTeleportData();
+        dataConfig = null;
+        reviveTeleportConfig = null;
+        dataFile = null;
+        reviveTeleportFile = null;
     }
 }

@@ -11,6 +11,8 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 
 import org.bukkit.event.EventPriority;
 
+import me.sparklee.LivesSMP.utils.DebugLog;
+
 import java.util.Calendar;
 import java.util.Date;
 import java.util.regex.Matcher;
@@ -34,6 +36,8 @@ public class DeathListener implements Listener {
         // Skip if player has bypass permission
         if (player.hasPermission("livessmp.bypass")) return;
 
+        DebugLog.d(plugin, "DeathListener: player=" + player.getName() + " uuid=" + player.getUniqueId());
+
         int amountToLose = 1;
         Player killer = player.getKiller();
         boolean lifeStealEnabled = killer != null && plugin.getConfig().getBoolean("life-steal.enabled", true);
@@ -41,11 +45,20 @@ public class DeathListener implements Listener {
             amountToLose = Math.max(1, plugin.getConfig().getInt("life-steal.amount", 1));
         }
 
+        int beforeLives = plugin.getPlayerManager().getLives(player);
+        DebugLog.d(plugin, "DeathListener: killer=" + (killer == null ? "null" : killer.getName())
+            + " lifeStealEnabled=" + lifeStealEnabled
+            + " amountToLose=" + amountToLose
+            + " victimLives(before)=" + beforeLives);
+
         int lives = plugin.getPlayerManager().removeLives(player.getUniqueId(), amountToLose);
+        DebugLog.d(plugin, "DeathListener: victimLives(after)=" + lives);
 
         // Life-steal: killer gains the same amount (if victim isn't bypass)
         if (lifeStealEnabled && !killer.hasPermission("livessmp.bypass")) {
             int killerLives = plugin.getPlayerManager().addLives(killer.getUniqueId(), amountToLose);
+
+            DebugLog.d(plugin, "DeathListener: killerLives(after)=" + killerLives);
 
             killer.sendMessage(MessageManager.formatPlaceholders(
                 MessageManager.get("life-steal-gain", "&aYou stole &e%amount% &alife(s) from &e%target%! &7(You now have &e%lives%&7)"),
@@ -71,6 +84,8 @@ public class DeathListener implements Listener {
             String durationStr = plugin.getConfig().getString("temporary-ban.duration", "1h");
             Date expires = tempBanEnabled ? parseDuration(durationStr) : null;
 
+            DebugLog.d(plugin, "DeathListener: lives<=0 -> ban temp=" + tempBanEnabled + " duration=" + durationStr + " expires=" + expires);
+
             String banReason = MessageManager.get("no-lives-left", "&c☠ You’ve lost all your lives!");
             String kickMessage;
 
@@ -92,6 +107,8 @@ public class DeathListener implements Listener {
             plugin.getLogger().info(player.getName() + " was "
                     + (tempBanEnabled ? "temporarily" : "permanently")
                     + " banned for losing all lives.");
+
+            DebugLog.memory(plugin, "after-ban:" + player.getName());
         } else {
             // Player still has lives remaining
             if (!lifeStealEnabled) {

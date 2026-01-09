@@ -6,11 +6,16 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 
+import me.sparklee.LivesSMP.utils.DebugLog;
+
 public class TeleportUtils {
 
     public static void teleportToSanctuary(LivesSMP plugin, Player player) {
         boolean enabled = plugin.getConfig().getBoolean("death-teleport.enabled", true);
-        if (!enabled) return;
+        if (!enabled) {
+            DebugLog.d(plugin, "TeleportUtils: teleport disabled, skipping for player=" + player.getName());
+            return;
+        }
 
         String worldName = plugin.getConfig().getString("death-teleport.world", "world");
         double x = plugin.getConfig().getDouble("death-teleport.x", -0.5);
@@ -22,10 +27,13 @@ public class TeleportUtils {
         World world = Bukkit.getWorld(worldName);
         if (world == null) {
             plugin.getLogger().warning("[LivesSMP] death-teleport.world is invalid: " + worldName);
+            DebugLog.d(plugin, "TeleportUtils: invalid worldName=" + worldName + " for player=" + player.getName());
             return;
         }
 
         Location location = new Location(world, x, y, z, yaw, pitch);
+        DebugLog.d(plugin, "TeleportUtils: teleporting player=" + player.getName()
+                + " to " + worldName + " (" + x + "," + y + "," + z + ") yaw=" + yaw + " pitch=" + pitch);
         player.teleport(location);
     }
 }

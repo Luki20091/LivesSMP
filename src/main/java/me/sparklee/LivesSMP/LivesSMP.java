@@ -19,6 +19,8 @@ import me.sparklee.LivesSMP.commands.SetLivesCommand;
 import me.sparklee.LivesSMP.commands.TopLivesCommand;
 import me.sparklee.LivesSMP.utils.UpdateChecker;
 import me.sparklee.LivesSMP.utils.LivesExpansion;
+import me.sparklee.LivesSMP.utils.DebugLog;
+import me.sparklee.LivesSMP.tasks.DebugMemorySamplerTask;
 
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
@@ -31,6 +33,8 @@ public class LivesSMP extends JavaPlugin {
     private ReviveItem reviveItem;
     private DatabaseManager databaseManager;
     private BukkitTask actionBarTask;
+    private BukkitTask debugMemoryTask;
+    private BukkitTask reviveTeleportCleanupTask;
     private LivesExpansion livesExpansion;
 
     @Override
@@ -43,16 +47,49 @@ public class LivesSMP extends JavaPlugin {
         getLogger().info("     Enabling LivesSMP v" + version);
         getLogger().info("=======================================");
 
+        DebugLog.memory(this, "onEnable:start");
+
         // Initialize version-aware config manager
         ConfigManager configManager = new ConfigManager(this, "config.yml");
         configManager.load(); // Handles version check, backups, and updates
 
+        DebugLog.d(this, "debug.enabled=" + getConfig().getBoolean("debug.enabled", false));
+        DebugLog.d(this, "mysql.enabled=" + getConfig().getBoolean("mysql.enabled", false));
+        DebugLog.d(this, "actionbar.enabled=" + getConfig().getBoolean("actionbar.enabled", true));
+
         databaseManager = new DatabaseManager(this);
         databaseManager.connect();
+
+        DebugLog.memory(this, "onEnable:after-db");
 
         playerManager = new PlayerManager(this);
         reviveItem = new ReviveItem(this);
         MessageManager.load();
+
+        DebugLog.memory(this, "onEnable:after-managers");
+
+        // Periodic cleanup for revive-teleport flags (prevents unbounded growth if revived players never re-join)
+        if (getConfig().getBoolean("revive-teleport.cleanup.enabled", true)) {
+            int minutes = Math.max(5, getConfig().getInt("revive-teleport.cleanup.interval-minutes", 60));
+            long periodTicks = minutes * 60L * 20L;
+            reviveTeleportCleanupTask = getServer().getScheduler().runTaskTimerAsynchronously(
+                    this,
+                    () -> {
+                        int removed = 0;
+                        try {
+                            removed = playerManager.pruneExpiredReviveTeleports(true);
+                        } catch (Exception e) {
+                            DebugLog.d(this, "revive-teleport cleanup failed", e);
+                        }
+                        if (removed > 0) {
+                            DebugLog.d(this, "revive-teleport cleanup: removed=" + removed + " pending=" + playerManager.getPendingReviveTeleportsCount());
+                        }
+                    },
+                    periodTicks,
+                    periodTicks
+            );
+            DebugLog.d(this, "revive-teleport cleanup enabled (interval=" + minutes + "m)");
+        }
 
         // Check for updates on Spigot
         new me.sparklee.LivesSMP.utils.UpdateChecker(this, 130095).checkForUpdates();
@@ -91,6 +128,20 @@ public class LivesSMP extends JavaPlugin {
             getLogger().info("ActionBar life display enabled (interval: " + interval + " ticks)");
         }
 
+        // Optional periodic memory sampler (debug)
+        if (getConfig().getBoolean("debug.enabled", false)
+                && getConfig().getBoolean("debug.memory-sampler.enabled", false)) {
+            int seconds = Math.max(5, getConfig().getInt("debug.memory-sampler.interval-seconds", 60));
+            long periodTicks = seconds * 20L;
+            debugMemoryTask = getServer().getScheduler().runTaskTimerAsynchronously(
+                    this,
+                    new DebugMemorySamplerTask(this),
+                    periodTicks,
+                    periodTicks
+            );
+            DebugLog.d(this, "Memory sampler enabled (interval=" + seconds + "s)");
+        }
+
         // Register PlaceholderAPI expansion if PAPI is installed
         if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
             livesExpansion = new LivesExpansion(this);
@@ -102,11 +153,31 @@ public class LivesSMP extends JavaPlugin {
 
 
         getLogger().info("LivesSMP v" + version + " has been enabled successfully!");
+
+        DebugLog.memory(this, "onEnable:done");
     }
 
     @Override
     public void onDisable() {
         String version = getDescription().getVersion();
+
+        DebugLog.memory(this, "onDisable:start");
+
+        // Extra safety: cancel any remaining scheduled tasks for this plugin.
+        try {
+            getServer().getScheduler().cancelTasks(this);
+        } catch (Exception ignored) {
+        }
+
+        if (debugMemoryTask != null) {
+            debugMemoryTask.cancel();
+            debugMemoryTask = null;
+        }
+
+        if (reviveTeleportCleanupTask != null) {
+            reviveTeleportCleanupTask.cancel();
+            reviveTeleportCleanupTask = null;
+        }
 
         if (actionBarTask != null) {
             actionBarTask.cancel();
@@ -122,8 +193,22 @@ public class LivesSMP extends JavaPlugin {
             livesExpansion = null;
         }
 
-        playerManager.saveData();
-        databaseManager.close();
+        try {
+            MessageManager.clear();
+        } catch (Exception ignored) {
+        }
+
+        if (playerManager != null) {
+            playerManager.close();
+            playerManager = null;
+        }
+
+        if (databaseManager != null) {
+            databaseManager.close();
+            databaseManager = null;
+        }
+
+        reviveItem = null;
 
         // Help GC on nonstandard plugin reloaders (e.g., PlugMan)
         instance = null;
@@ -131,6 +216,8 @@ public class LivesSMP extends JavaPlugin {
         getLogger().info("=======================================");
         getLogger().info("     Disabling LivesSMP v" + version);
         getLogger().info("=======================================");
+
+        DebugLog.memory(this, "onDisable:done");
     }
 
     public static LivesSMP getInstance() {

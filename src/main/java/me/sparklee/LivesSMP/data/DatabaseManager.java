@@ -4,6 +4,7 @@ import me.sparklee.LivesSMP.LivesSMP;
 import org.bukkit.Bukkit;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
+import me.sparklee.LivesSMP.utils.DebugLog;
 
 import java.sql.*;
 import java.util.HashSet;
@@ -27,6 +28,7 @@ public class DatabaseManager {
     public void connect() {
         if (!plugin.getConfig().getBoolean("mysql.enabled")) {
             plugin.getLogger().info("MySQL disabled — using YAML storage.");
+            DebugLog.d(plugin, "DatabaseManager.connect(): mysql.enabled=false");
             return;
         }
 
@@ -36,6 +38,8 @@ public class DatabaseManager {
         username = plugin.getConfig().getString("mysql.username");
         password = plugin.getConfig().getString("mysql.password");
 
+        DebugLog.d(plugin, "DatabaseManager.connect(): host=" + host + " port=" + port + " database=" + database + " username=" + username);
+
         try {
             connection = DriverManager.getConnection(
                     "jdbc:mysql://" + host + ":" + port + "/" + database + "?useSSL=false&autoReconnect=true",
@@ -43,11 +47,14 @@ public class DatabaseManager {
             );
             plugin.getLogger().info("✅ Connected to MySQL successfully!");
             enabled = true;
+
+            DebugLog.d(plugin, "DatabaseManager.connect(): connection ok");
             setupTable();
             startKeepAlive();
         } catch (SQLException e) {
             plugin.getLogger().severe("❌ Failed to connect to MySQL: " + e.getMessage());
             enabled = false;
+            DebugLog.d(plugin, "DatabaseManager.connect(): connection failed", e);
         }
     }
 
@@ -56,8 +63,10 @@ public class DatabaseManager {
                 "CREATE TABLE IF NOT EXISTS player_lives (uuid VARCHAR(36) PRIMARY KEY, lives INT)"
         )) {
             ps.executeUpdate();
+            DebugLog.d(plugin, "DatabaseManager.setupTable(): ensured table player_lives");
         } catch (SQLException e) {
             plugin.getLogger().severe("Failed to create table: " + e.getMessage());
+            DebugLog.d(plugin, "DatabaseManager.setupTable(): failed", e);
         }
     }
 
@@ -69,6 +78,8 @@ public class DatabaseManager {
             keepAliveTask.cancel();
             keepAliveTask = null;
         }
+
+        DebugLog.d(plugin, "DatabaseManager.startKeepAlive(): scheduling async keep-alive every 5 minutes");
 
         keepAliveTask = new BukkitRunnable() {
             @Override
@@ -113,17 +124,21 @@ public class DatabaseManager {
                     username, password
             );
             plugin.getLogger().info("🔄 Reconnected to MySQL successfully!");
+            DebugLog.d(plugin, "DatabaseManager.reconnect(): ok");
         } catch (SQLException e) {
             plugin.getLogger().severe("❌ MySQL reconnection failed: " + e.getMessage());
+            DebugLog.d(plugin, "DatabaseManager.reconnect(): failed", e);
         }
     }
 
     private void ensureConnection() {
         try {
             if (connection == null || connection.isClosed() || !connection.isValid(2)) {
+                DebugLog.d(plugin, "DatabaseManager.ensureConnection(): connection invalid, reconnecting");
                 reconnect();
             }
         } catch (SQLException e) {
+            DebugLog.d(plugin, "DatabaseManager.ensureConnection(): exception, reconnecting", e);
             reconnect();
         }
     }
@@ -193,8 +208,10 @@ public class DatabaseManager {
         }
         try {
             if (connection != null && !connection.isClosed()) connection.close();
+            DebugLog.d(plugin, "DatabaseManager.close(): connection closed");
         } catch (SQLException e) {
             plugin.getLogger().warning("Error closing MySQL connection: " + e.getMessage());
+            DebugLog.d(plugin, "DatabaseManager.close(): close failed", e);
         }
     }
 

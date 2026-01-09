@@ -8,7 +8,18 @@
 # ─────────────────────────────────────────────────────────
 # DO NOT TOUCH
 # ─────────────────────────────────────────────────────────
-config-version: 7
+config-version: 9
+
+# ─────────────────────────────────────────────────────────
+# Debug Logging (performance / memory diagnostics)
+# enabled: master switch for debug logs.
+# memory-sampler: periodically logs heap usage to console.
+# ─────────────────────────────────────────────────────────
+debug:
+  enabled: false
+  memory-sampler:
+    enabled: false
+    interval-seconds: 30
 
 # ───────────────────────────────────────────────
 # Update Checker
@@ -35,6 +46,22 @@ starting-lives: 3
 # Default: 1
 # ─────────────────────────────────────────────────────────
 revive-lives: 3
+
+# ─────────────────────────────────────────────────────────
+# Revive Teleport Flag Retention
+# The plugin stores a one-time "teleport to sanctuary" flag after revive.
+# To prevent unbounded growth if revived players never re-join, flags can expire.
+# expire-after-days:
+#   - Set to 0 or -1 to never expire
+#   - Recommended: 7-30
+# cleanup:
+#   Periodically prunes expired entries from revive-teleport.yml.
+# ─────────────────────────────────────────────────────────
+revive-teleport:
+  expire-after-days: 30
+  cleanup:
+    enabled: true
+    interval-minutes: 60
 
 # ─────────────────────────────────────────────────────────
 # Lives restored automatically after a temporary ban expires.

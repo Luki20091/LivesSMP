@@ -3,6 +3,7 @@ package me.sparklee.LivesSMP.events;
 import me.sparklee.LivesSMP.LivesSMP;
 import me.sparklee.LivesSMP.utils.MessageManager;
 import me.sparklee.LivesSMP.utils.TeleportUtils;
+import me.sparklee.LivesSMP.utils.DebugLog;
 import org.bukkit.BanList;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -22,17 +23,23 @@ public class JoinListener implements Listener {
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
 
+        DebugLog.d(plugin, "JoinListener: player=" + player.getName() + " uuid=" + player.getUniqueId());
+
         int startingLives = plugin.getConfig().getInt("starting-lives", 3);
         int postBanLives = plugin.getConfig().getInt("post-ban-lives", startingLives);
         int lives = plugin.getPlayerManager().getLives(player);
 
+        DebugLog.d(plugin, "JoinListener: startingLives=" + startingLives + " postBanLives=" + postBanLives + " storedLives=" + lives);
+
         // If marked due to offline revive, teleport to sanctuary once
         if (plugin.getPlayerManager().consumeReviveTeleport(player.getUniqueId())) {
+            DebugLog.d(plugin, "JoinListener: consumeReviveTeleport=true -> teleport to sanctuary");
             Bukkit.getScheduler().runTask(plugin, () -> TeleportUtils.teleportToSanctuary(plugin, player));
         }
 
         // If the player has no data yet
         if (!plugin.getPlayerManager().hasData(player)) {
+            DebugLog.d(plugin, "JoinListener: no data -> setLives=" + startingLives);
             plugin.getPlayerManager().setLives(player, startingLives);
 
             player.sendMessage(MessageManager.formatPlaceholders(
@@ -44,6 +51,7 @@ public class JoinListener implements Listener {
 
         BanList banList = Bukkit.getBanList(BanList.Type.NAME);
         if (lives <= 0 && !banList.isBanned(player.getName())) {
+            DebugLog.d(plugin, "JoinListener: lives<=0 but not banned -> auto restore to " + postBanLives);
             plugin.getPlayerManager().setLives(player, postBanLives);
             player.sendMessage(MessageManager.formatPlaceholders(
                 MessageManager.get("auto-revive", "&aYou were revived and restored to &e%lives% &alives!"),
@@ -61,5 +69,7 @@ public class JoinListener implements Listener {
                 MessageManager.get("join-return", "&7Welcome back! You currently have &e%lives% &7lives."),
                 player.getName(), null, lives
         ));
+
+        DebugLog.memory(plugin, "after-join:" + player.getName());
     }
 }

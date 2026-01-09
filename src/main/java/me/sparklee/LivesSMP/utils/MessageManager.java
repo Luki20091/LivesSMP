@@ -12,6 +12,13 @@ public class MessageManager {
     }
 
     /**
+     * Releases static references (helps GC on nonstandard plugin reloaders).
+     */
+    public static void clear() {
+        config = null;
+    }
+
+    /**
      * Get a message by path from config.yml (under "messages.")
      * If missing, returns a default fallback.
      */

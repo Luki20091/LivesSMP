@@ -2,6 +2,7 @@ package me.sparklee.LivesSMP.events;
 
 import me.sparklee.LivesSMP.LivesSMP;
 import me.sparklee.LivesSMP.utils.MessageManager;
+import me.sparklee.LivesSMP.utils.Messages;
 import org.bukkit.BanList;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -19,6 +20,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class DeathListener implements Listener {
+
+    private static final String NO_LIVES_BAN_MARKER = "[LivesSMP:NO_LIVES]";
 
     private final LivesSMP plugin;
 
@@ -86,7 +89,12 @@ public class DeathListener implements Listener {
 
             DebugLog.d(plugin, "DeathListener: lives<=0 -> ban temp=" + tempBanEnabled + " duration=" + durationStr + " expires=" + expires);
 
-            String banReason = MessageManager.get("no-lives-left", "&c☠ You’ve lost all your lives!");
+            // Add a stable marker so commands/tab-complete can reliably detect bans caused by LivesSMP.
+                String rawNoLives = plugin.getConfig().getString(
+                    "messages.no-lives-left",
+                    "&c☠ You’ve lost all your lives!"
+                );
+                String banReason = NO_LIVES_BAN_MARKER + " " + Messages.formatNoPrefix(rawNoLives);
             String kickMessage;
 
             if (tempBanEnabled) {

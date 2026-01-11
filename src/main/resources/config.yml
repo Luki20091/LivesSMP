@@ -1,25 +1,14 @@
-###########################################################
+# ##########################################################
 #                  LivesSMP Configuration                 #
 #       Created by Sparklee | https://www.spigotmc.org/members/sparklee.1696271/         #
 #   For help with Material names, see:                    #
 #   https://hub.spigotmc.org/javadocs/bukkit/org/bukkit/Material.html
-###########################################################
+# ##########################################################
 
 # ─────────────────────────────────────────────────────────
 # DO NOT TOUCH
 # ─────────────────────────────────────────────────────────
 config-version: 9
-
-# ─────────────────────────────────────────────────────────
-# Debug Logging (performance / memory diagnostics)
-# enabled: master switch for debug logs.
-# memory-sampler: periodically logs heap usage to console.
-# ─────────────────────────────────────────────────────────
-debug:
-  enabled: false
-  memory-sampler:
-    enabled: false
-    interval-seconds: 30
 
 # ───────────────────────────────────────────────
 # Update Checker
@@ -33,7 +22,8 @@ check-for-updates: true
 # Supports '&' color codes (e.g., &6 = gold, &f = white)
 # Appears in front of most chat messages sent by this plugin.
 # ─────────────────────────────────────────────────────────
-prefix: "&6[LivesSMP] &f"
+prefix: '&x&F&1&4&1&4&1&lS&x&F&2&5&3&5&3&lt&x&F&4&6&5&6&5&lr&x&F&5&7&7&7&7&le&x&F&7&8&9&8&9&la&x&F&8&9&C&9&C&lm&x&F&9&A&E&A&E&lC&x&F&B&C&0&C&0&lr&x&F&C&D&2&D&2&la&x&F&E&E&4&E&4&lf&x&F&F&F&6&F&6&lt
+  &f'
 
 # ─────────────────────────────────────────────────────────
 # How many lives new players start with.
@@ -46,22 +36,6 @@ starting-lives: 3
 # Default: 1
 # ─────────────────────────────────────────────────────────
 revive-lives: 3
-
-# ─────────────────────────────────────────────────────────
-# Revive Teleport Flag Retention
-# The plugin stores a one-time "teleport to sanctuary" flag after revive.
-# To prevent unbounded growth if revived players never re-join, flags can expire.
-# expire-after-days:
-#   - Set to 0 or -1 to never expire
-#   - Recommended: 7-30
-# cleanup:
-#   Periodically prunes expired entries from revive-teleport.yml.
-# ─────────────────────────────────────────────────────────
-revive-teleport:
-  expire-after-days: 30
-  cleanup:
-    enabled: true
-    interval-minutes: 60
 
 # ─────────────────────────────────────────────────────────
 # Lives restored automatically after a temporary ban expires.
@@ -79,15 +53,15 @@ post-ban-lives: 3
 # Example: "30m", "2h", "1d"
 # ─────────────────────────────────────────────────────────
 temporary-ban:
-  enabled: false
-  duration: "1h"
+  enabled: true
+  duration: 1d
 
 # ─────────────────────────────────────────────────────────
 # Life Steal Settings
 # When a player kills another player, they steal lives.
 # ─────────────────────────────────────────────────────────
 life-steal:
-  enabled: true
+  enabled: false
   amount: 1
   broadcast: true
 
@@ -96,7 +70,7 @@ life-steal:
 # Once this limit is reached, they cannot gain more lives.
 # Set this to -1 to allow players to have unlimited lives.
 # ─────────────────────────────────────────────────────────
-max-lives: 10
+max-lives: 3
 
 # ─────────────────────────────────────────────────────────
 # ActionBar Display
@@ -105,22 +79,8 @@ max-lives: 10
 # interval-ticks = update frequency (20 ticks = 1 second)
 # ─────────────────────────────────────────────────────────
 actionbar:
-  enabled: true
+  enabled: false
   interval-ticks: 60
-
-# ─────────────────────────────────────────────────────────
-# Death Teleport (anti-lava / anti-fall loop)
-# Teleports the player after respawn to a safe location.
-# Runs 1 tick after respawn.
-# ─────────────────────────────────────────────────────────
-death-teleport:
-  enabled: true
-  world: "world"
-  x: -216.50
-  y: 93.50
-  z: -1153.50
-  yaw: -90.0
-  pitch: 45.0
 
 # ─────────────────────────────────────────────────────────
 # Revive Crystal Settings
@@ -128,13 +88,13 @@ death-teleport:
 # You can fully customize its crafting recipe here.
 # ─────────────────────────────────────────────────────────
 revive-crystal:
-
+  
   # Enable or disable crafting of the Revive Crystal.
   enabled: true
-
+  
   # How many crystals are crafted per recipe.
   amount: 1
-
+  
   # Crafting shape (3 lines, each 3 characters).
   # You can use any characters here as keys, as long as
   # each one is defined in the "ingredients" section below.
@@ -148,17 +108,17 @@ revive-crystal:
   #  E S E
   #  D E D
   shape:
-    - "DED"
-    - "ESE"
-    - "DED"
-
+  - XEX
+  - DSD
+  - XEX
+  
   # Ingredient mapping
   # Each key corresponds to a symbol used above in the shape.
   # For a full list of valid Material names, see:
   # https://hub.spigotmc.org/javadocs/bukkit/org/bukkit/Material.html
   ingredients:
-    D: DIAMOND_BLOCK
-    E: END_CRYSTAL
+    D: QUARTZ_BLOCK
+    E: WRITABLE_BOOK
     S: TOTEM_OF_UNDYING
 
 # ─────────────────────────────────────────────────────────
@@ -166,47 +126,56 @@ revive-crystal:
 # Supports & color codes and hex colors using &#RRGGBB (e.g. &#FF9F68)
 # ─────────────────────────────────────────────────────────
 messages:
-  join-new: "&aWelcome to Lives SMP! You’ve been given &e%lives% &alives."
-  join-return: "&7Welcome back! You currently have &e%lives% &7lives."
-
-  life-lost: "&cYou lost a life! &7Lives remaining: &e%lives%"
-  no-lives-left: "&c☠ You’ve lost all of your lives! You are now banned until revived."
-
-  revive-success: "&aYou revived &e%target%&a!"
-  revive-target: "&aYou’ve been revived by &e%player%&a!"
-  revive-broadcast: "&#FF9F68⚡ &e%player% &7has revived &b%target% &7using a Revive Crystal!"
-  revive-invalid-item: "&cYou must hold a Revive Crystal to use this!"
-  revive-invalid-player: "&cThat player has never joined the server!"
-  revive-not-zero: "&eThat player still has lives left and cannot be revived!"
-  auto-revive: "&aYou were revived and restored to &e%lives% &alives!"
-
-  lives-display: "&7You currently have &e%lives% &7lives remaining."
-
-  no-permission: "&cYou don't have permission to do that!"
-  invalid-amount: "&cPlease provide a valid number for amount!"
-  player-never-joined: "&cThat player has never joined before!"
-  usage-add: "&eUsage: /addlives <player> <amount>"
-  usage-remove: "&eUsage: /removelives <player> <amount>"
-  usage-set: "&eUsage: /setlives <player> <amount>"
-
-  add-success: "&aYou added &e%amount% &alives to &e%target%&a. (Now: &e%lives%&a)"
-  add-receive: "&aYour lives were increased by &e%player%&a! You now have &e%lives%&a lives."
-
-  remove-success: "&cYou removed &e%amount% &clives from &e%target%&c. (Now: &e%lives%&c)"
-  remove-receive: "&cYour lives were reduced by &e%player%&c! You now have &e%lives%&c lives."
-
-  set-success: "&eYou set &e%target%&e's lives to &e%lives%&e."
-  set-receive: "&eYour lives were set to &e%lives% &eby &e%player%&e."
-
-  life-steal-gain: "&aYou stole &e%amount% &alife(s) from &e%target%! &7(You now have &e%lives%&7)"
-  life-steal-loss: "&cYou lost &e%amount% &clife(s) to &e%player%! &7(You now have &e%lives%&7)"
-  life-steal-broadcast: "&#FF9F68⚔ &e%player% &7stole &c%amount% &7life(s) from &e%target%!"
-
-  max-lives-reached: "&e%target% &aalready has the maximum of &e%lives% &alives!"
-  max-lives-limit: "&eYou cannot set lives above the maximum of &e%lives%!"
-
-  ban-temp-message: "&c☠ You’ve lost all your lives! &7You are banned for a limited time."
-  ban-permanent-message: "&c☠ You’ve lost all your lives! &7You are now banned until someone revives you."
+  join-new: '&aWitamy po raz pierwszy! Otrzymałeś &e3 życia&a.'
+  join-return: '&7Witamy ponownie! Aktualnie masz &e%lives% &7żyć.'
+  
+  life-lost: '&cStraciłeś jedno życie! &7Pozostałe życia: &e%lives%'
+  no-lives-left: '&c☠ Straciłeś wszystkie życia! Zostałeś zbanowany do czasu wskrzeszenia.'
+  
+  revive-success: '&aWskrzesiłeś gracza &e%target%&a!'
+  revive-target: '&aZostałeś wskrzeszony przez &e%player%&a!'
+  revive-broadcast: '&#FF9F68⚡ &e%player% &7wskrzesił &b%target% &7używając Kryształu
+    Wskrzeszenia!'
+  revive-invalid-item: '&cMusisz trzymać Kryształ Wskrzeszenia, aby tego użyć!'
+  revive-invalid-player: '&cTen gracz nigdy nie był na serwerze!'
+  revive-not-zero: '&eTen gracz nadal ma życia i nie może zostać wskrzeszony!'
+  auto-revive: '&aZostałeś automatycznie wskrzeszony i przywrócono ci &e%lives% &ażyć!'
+  
+  lives-display: '&7Aktualnie masz &e%lives% &7pozostałych żyć.'
+  
+  no-permission: '&cNie masz uprawnień, aby to zrobić!'
+  invalid-amount: '&cPodaj poprawną liczbę!'
+  player-never-joined: '&cTen gracz nigdy wcześniej nie był na serwerze!'
+  usage-add: '&eUżycie: /addlives <gracz> <ilość>'
+  usage-remove: '&eUżycie: /removelives <gracz> <ilość>'
+  usage-set: '&eUżycie: /setlives <gracz> <ilość>'
+  
+  add-success: '&aDodałeś &e%amount% &ażyć graczowi &e%target%&a. (Teraz: &e%lives%&a)'
+  add-receive: '&aTwoje życia zostały zwiększone przez &e%player%&a! Teraz masz &e%lives%&a
+    żyć.'
+  revive-not-eligible: "&cTego gracza nie można wskrzesić: nie jest zbanowany za utratę wszystkich żyć."
+  
+  remove-success: '&cUsunąłeś &e%amount% &cżyć graczowi &e%target%&c. (Teraz: &e%lives%&c)'
+  remove-receive: '&cTwoje życia zostały zmniejszone przez &e%player%&c! Teraz masz
+    &e%lives%&c żyć.'
+  
+  set-success: '&eUstawiłeś licznik żyć gracza &e%target% &ena &e%lives%&e.'
+  set-receive: '&eTwoje życia zostały ustawione na &e%lives% &eprzez &e%player%&e.'
+  
+  life-steal-gain: '&aUkradłeś &e%amount% &ażycie(a) graczowi &e%target%! &7(Teraz
+    masz &e%lives%&7)'
+  life-steal-loss: '&cStraciłeś &e%amount% &cżycie(a) na rzecz &e%player%! &7(Teraz
+    masz &e%lives%&7)'
+  life-steal-broadcast: '&#FF9F68⚔ &e%player% &7ukradł &c%amount% &7życie(a) graczowi
+    &e%target%!'
+  
+  max-lives-reached: '&e%target% &ajuż ma maksymalną liczbę &e%lives% &ażyć!'
+  max-lives-limit: '&eNie możesz ustawić liczby żyć powyżej maksimum &e%lives%!'
+  
+  ban-temp-message: '&c☠ Straciłeś wszystkie życia! &7Zostałeś zbanowany na określony
+    czas.'
+  ban-permanent-message: '&c☠ Straciłeś wszystkie życia! &7Jesteś zbanowany do czasu
+    wskrzeszenia.'
 
 # ─────────────────────────────────────────────────────────
 # MySQL Database Settings
@@ -216,12 +185,39 @@ messages:
 # ─────────────────────────────────────────────────────────
 mysql:
   enabled: false
-  host: "localhost"
+  host: localhost
   port: 3306
-  database: "livesmp"
-  username: "root"
-  password: "password"
+  database: livesmp
+  username: root
+  password: password
 
-###########################################################
+
+
+# ─────────────────────────────────────────────────────────
+# Death Teleport (anti-lava / anti-fall loop)
+# Teleports the player after respawn to a safe location.
+# Runs 1 tick after respawn.
+# ─────────────────────────────────────────────────────────
+death-teleport:
+  enabled: true
+  world: world
+  x: -216.5
+  y: 93.5
+  z: -1153.5
+  yaw: -90.0
+  pitch: 45.0
+debug:
+  enabled: false
+  memory-sampler:
+    enabled: false
+    interval-seconds: 30
+revive-teleport:
+  expire-after-days: 30
+  cleanup:
+    enabled: true
+    interval-minutes: 60
+
+
+# ##########################################################
 #  End of Configuration File
-###########################################################
+# ##########################################################

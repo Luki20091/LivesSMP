@@ -72,7 +72,8 @@ public class LivesSMP extends JavaPlugin {
         if (getConfig().getBoolean("revive-teleport.cleanup.enabled", true)) {
             int minutes = Math.max(5, getConfig().getInt("revive-teleport.cleanup.interval-minutes", 60));
             long periodTicks = minutes * 60L * 20L;
-            reviveTeleportCleanupTask = getServer().getScheduler().runTaskTimerAsynchronously(
+            // Run sync: YamlConfiguration is not thread-safe.
+            reviveTeleportCleanupTask = getServer().getScheduler().runTaskTimer(
                     this,
                     () -> {
                         int removed = 0;
@@ -133,7 +134,8 @@ public class LivesSMP extends JavaPlugin {
                 && getConfig().getBoolean("debug.memory-sampler.enabled", false)) {
             int seconds = Math.max(5, getConfig().getInt("debug.memory-sampler.interval-seconds", 60));
             long periodTicks = seconds * 20L;
-            debugMemoryTask = getServer().getScheduler().runTaskTimerAsynchronously(
+            // Run sync: DebugLog.memory reads Bukkit state and plugin configs.
+            debugMemoryTask = getServer().getScheduler().runTaskTimer(
                     this,
                     new DebugMemorySamplerTask(this),
                     periodTicks,

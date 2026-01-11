@@ -52,6 +52,13 @@ public class Messages {
         return format(message, true);
     }
 
+    /**
+     * Formats a message without adding the configured prefix.
+     */
+    public static String formatNoPrefix(String message) {
+        return format(message, false);
+    }
+
     private static String format(String message, boolean includePrefix) {
         // 1. Apply custom hex codes
         String processed = applyHexColors(message);

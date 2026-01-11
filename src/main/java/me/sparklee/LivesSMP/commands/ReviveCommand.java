@@ -3,10 +3,12 @@ package me.sparklee.LivesSMP.commands;
 import me.sparklee.LivesSMP.LivesSMP;
 import me.sparklee.LivesSMP.items.ReviveItem;
 import me.sparklee.LivesSMP.utils.MessageManager;
+import me.sparklee.LivesSMP.utils.Messages;
 import me.sparklee.LivesSMP.utils.TeleportUtils;
 import me.sparklee.LivesSMP.utils.DebugLog;
 import org.bukkit.BanList;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.BanEntry;
 import org.bukkit.command.*;
@@ -21,6 +23,8 @@ import java.util.Set;
 import java.util.UUID;
 
 public class ReviveCommand implements CommandExecutor, TabCompleter {
+
+    private static final String NO_LIVES_BAN_MARKER = "[LivesSMP:NO_LIVES]";
 
     private final LivesSMP plugin;
 
@@ -50,10 +54,21 @@ public class ReviveCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        OfflinePlayer target = Bukkit.getOfflinePlayer(args[0]);
-        if (target == null || !target.hasPlayedBefore()) {
-            DebugLog.d(plugin, "ReviveCommand: target never joined: input=" + args[0]);
+        OfflinePlayer target = resolveTarget(args[0]);
+        if (target == null) {
+            DebugLog.d(plugin, "ReviveCommand: target resolve failed: input=" + args[0]);
             player.sendMessage(MessageManager.get("revive-invalid-player", "&cThat player has never joined the server!"));
+            return true;
+        }
+
+        // Require that the player is currently banned specifically for losing all lives.
+        String targetName = target.getName();
+        if (targetName == null || targetName.isBlank() || !isBannedForNoLives(targetName)) {
+            DebugLog.d(plugin, "ReviveCommand: target not eligible (not banned for no-lives): input=" + args[0]);
+            player.sendMessage(MessageManager.get(
+                    "revive-not-eligible",
+                    "&cThat player is not banned for losing all lives (LivesSMP)."
+            ));
             return true;
         }
 
@@ -139,26 +154,17 @@ public class ReviveCommand implements CommandExecutor, TabCompleter {
         String prefix = args[0] == null ? "" : args[0].toLowerCase();
         Set<String> candidates = new HashSet<>();
 
-        // Players with 0 lives from storage (MySQL/YAML)
-        for (UUID uuid : plugin.getPlayerManager().getUuidsWithLives(0)) {
-            OfflinePlayer offline = Bukkit.getOfflinePlayer(uuid);
-            String name = offline.getName();
-            if (name != null && !name.isBlank()) {
-                candidates.add(name);
-            }
-        }
-
-        // Also include currently banned names (covers cases where ban exists even if storage is missing)
+        // Only suggest players banned by LivesSMP for losing all lives.
         BanList banList = Bukkit.getBanList(BanList.Type.NAME);
         for (Object obj : banList.getBanEntries()) {
-            if (obj instanceof BanEntry<?> entry) {
-                Object targetObj = entry.getTarget();
-                if (targetObj == null) continue;
-                String targetName = String.valueOf(targetObj);
-                if (!targetName.isBlank() && !"null".equalsIgnoreCase(targetName)) {
-                    candidates.add(targetName);
-                }
-            }
+            if (!(obj instanceof BanEntry<?> entry)) continue;
+            String reason = entry.getReason();
+            if (!isNoLivesBanReason(reason)) continue;
+
+            String targetName = extractTargetName(entry.getTarget());
+            if (targetName == null) continue;
+
+            candidates.add(targetName);
         }
 
         List<String> result = new ArrayList<>();
@@ -170,5 +176,114 @@ public class ReviveCommand implements CommandExecutor, TabCompleter {
 
         result.sort(String.CASE_INSENSITIVE_ORDER);
         return result;
+    }
+
+    private boolean isBannedForNoLives(String name) {
+        BanList banList = Bukkit.getBanList(BanList.Type.NAME);
+        if (!banList.isBanned(name)) return false;
+
+        BanEntry<?> entry = banList.getBanEntry(name);
+        if (entry == null) {
+            entry = findBanEntryByName(banList, name);
+        }
+        if (entry == null) return false;
+
+        String reason = entry.getReason();
+        return isNoLivesBanReason(reason);
+    }
+
+    private BanEntry<?> findBanEntryByName(BanList banList, String name) {
+        if (banList == null || name == null || name.isBlank()) return null;
+
+        for (Object obj : banList.getBanEntries()) {
+            if (!(obj instanceof BanEntry<?> entry)) continue;
+            String targetName = extractTargetName(entry.getTarget());
+            if (targetName == null) continue;
+            if (targetName.equalsIgnoreCase(name)) {
+                return entry;
+            }
+        }
+
+        return null;
+    }
+
+    private String extractTargetName(Object targetObj) {
+        if (targetObj == null) return null;
+
+        if (targetObj instanceof String s) {
+            String trimmed = s.trim();
+            return trimmed.isEmpty() ? null : trimmed;
+        }
+
+        if (targetObj instanceof OfflinePlayer offlinePlayer) {
+            String name = offlinePlayer.getName();
+            return (name == null || name.isBlank()) ? null : name;
+        }
+
+        String asString = String.valueOf(targetObj).trim();
+        return asString.isEmpty() || "null".equalsIgnoreCase(asString) ? null : asString;
+    }
+
+    private boolean isNoLivesBanReason(String reason) {
+        if (reason == null || reason.isBlank()) return false;
+
+        // Preferred: stable marker.
+        if (reason.contains(NO_LIVES_BAN_MARKER)) return true;
+
+        // Fallback: support older plugin versions that didn't include the marker.
+        // Normalize both strings to avoid issues with prefix changes, colors, and spacing.
+        String normalizedReason = normalize(reason);
+
+        String rawNoLives = plugin.getConfig().getString(
+                "messages.no-lives-left",
+                "&c☠ You’ve lost all your lives!"
+        );
+
+        String expectedWithPrefix = normalize(MessageManager.get("no-lives-left", rawNoLives));
+        String expectedNoPrefix = normalize(Messages.formatNoPrefix(rawNoLives));
+
+        return (!expectedWithPrefix.isBlank() && normalizedReason.contains(expectedWithPrefix))
+                || (!expectedNoPrefix.isBlank() && normalizedReason.contains(expectedNoPrefix));
+    }
+
+    private String normalize(String input) {
+        if (input == null) return "";
+
+        String stripped = ChatColor.stripColor(input);
+        if (stripped == null) stripped = input;
+
+        return stripped
+                .replace('\u00A0', ' ')
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    /**
+     * Resolves an OfflinePlayer without accidentally creating a fake profile that "never joined".
+     */
+    private OfflinePlayer resolveTarget(String inputName) {
+        if (inputName == null || inputName.isBlank()) return null;
+
+        // Prefer cached profile (avoids creating synthetic OfflinePlayer entries).
+        OfflinePlayer cached = Bukkit.getOfflinePlayerIfCached(inputName);
+        if (cached != null) return cached;
+
+        // Try match by known UUIDs (e.g., players with 0 lives in storage).
+        String needle = inputName.toLowerCase();
+        for (UUID uuid : plugin.getPlayerManager().getUuidsWithLives(0)) {
+            OfflinePlayer offline = Bukkit.getOfflinePlayer(uuid);
+            String name = offline.getName();
+            if (name != null && name.toLowerCase().equals(needle)) {
+                return offline;
+            }
+        }
+
+        // As a last resort, fall back to Bukkit lookup, but require that we have plugin data for that UUID.
+        OfflinePlayer fallback = Bukkit.getOfflinePlayer(inputName);
+        if (fallback != null && plugin.getPlayerManager().hasData(fallback.getUniqueId())) {
+            return fallback;
+        }
+
+        return null;
     }
 }
